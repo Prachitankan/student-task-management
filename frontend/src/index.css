@@ -1,0 +1,347 @@
+/* ==========================================================================
+   Design System: Monospace Academic OS
+   Grounded in Berkeley Mono aesthetic & Design Specification
+   ========================================================================== */
+
+:root {
+  /* Color Palette */
+  --canvas: #fdfcfc;
+  --ink: #201d1d;
+  --ink-deep: #0f0000;
+  --on-dark: #fdfcfc;
+
+  --surface-soft: #f8f7f7;
+  --surface-card: #f1eeee;
+  --surface-dark: #201d1d;
+  --surface-dark-elevated: #302c2c;
+
+  --hairline: rgba(15, 0, 0, 0.12);
+  --hairline-strong: #646262;
+
+  --charcoal: #302c2c;
+  --body: #424245;
+  --mute: #646262;
+  --stone: #6e6e73;
+  --ash: #9a9898;
+
+  /* Semantic Highlights (Apple HIG ramp) */
+  --accent: #007aff;
+  --accent-hover: #0056b3;
+  --danger: #ff3b30;
+  --danger-hover: #d70015;
+  --warning: #ff9f0a;
+  --warning-hover: #cc7f08;
+  --success: #30d158;
+
+  /* Typography */
+  --font-mono: 'JetBrains Mono', 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  
+  /* Geometry */
+  --radius-sm: 4px;
+  --radius-none: 0px;
+  --radius-full: 9999px;
+
+  /* Spacing */
+  --space-xxs: 2px;
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 12px;
+  --space-lg: 16px;
+  --space-xl: 24px;
+  --space-xxl: 32px;
+  --space-section: 64px;
+
+  /* Layout */
+  --content-max-width: 1200px;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body {
+  background-color: var(--canvas);
+  color: var(--body);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1.5;
+  letter-spacing: -0.01em;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  min-height: 100vh;
+}
+
+/* Typography tokens */
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-mono);
+  color: var(--ink);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+h1 {
+  font-size: 28px;
+  line-height: 1.3;
+}
+
+@media (min-width: 768px) {
+  h1 {
+    font-size: 34px;
+  }
+}
+
+h2 {
+  font-size: 18px;
+  line-height: 1.4;
+  margin-bottom: var(--space-sm);
+}
+
+h3 {
+  font-size: 15px;
+  font-weight: 600;
+}
+
+p {
+  color: var(--body);
+  font-size: 15px;
+  line-height: 1.5;
+}
+
+a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  font-family: inherit;
+  transition: opacity 0.15s ease;
+}
+
+a:hover {
+  opacity: 0.8;
+}
+
+code, kbd, pre {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+/* Form element defaults */
+input, select, textarea, button {
+  font-family: var(--font-mono);
+  font-size: 14px;
+}
+
+/* Focus styles matching design spec: flat 1px solid ink signal */
+input:focus, select:focus, textarea:focus, button:focus-visible {
+  outline: none;
+  border-color: var(--ink) !important;
+  box-shadow: none !important;
+}
+
+/* Scrollbar aesthetic: minimal and monospaced */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--surface-soft);
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4cfcf;
+  border-radius: var(--radius-sm);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--hairline-strong);
+}
+
+/* Base button styling */
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  background-color: var(--ink);
+  color: var(--on-dark);
+  border: 1px solid var(--ink);
+  border-radius: var(--radius-sm);
+  padding: 6px 16px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  text-decoration: none;
+  user-select: none;
+  transition: background-color 0.15s ease, transform 0.05s ease;
+}
+
+.btn-primary:active {
+  background-color: var(--ink-deep);
+  transform: translateY(1px);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-sm);
+  background-color: var(--canvas);
+  color: var(--ink);
+  border: 1px solid var(--hairline-strong);
+  border-radius: var(--radius-sm);
+  padding: 6px 16px;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+  user-select: none;
+  transition: background-color 0.15s ease;
+}
+
+.btn-secondary:hover {
+  background-color: var(--surface-soft);
+}
+
+.btn-secondary:active {
+  background-color: var(--surface-card);
+}
+
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  background: transparent;
+  color: var(--mute);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.btn-ghost:hover {
+  color: var(--ink);
+  background: var(--surface-card);
+}
+
+.btn-danger-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  background: transparent;
+  color: var(--danger);
+  border: 1px solid transparent;
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.btn-danger-ghost:hover {
+  background: rgba(255, 59, 48, 0.1);
+}
+
+/* Badges & Pills */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--hairline);
+  background: var(--surface-card);
+  color: var(--ink);
+  letter-spacing: 0.02em;
+}
+
+.badge-dark {
+  background: var(--surface-dark);
+  color: var(--on-dark);
+  border-color: var(--surface-dark);
+}
+
+.badge-high {
+  background: rgba(255, 59, 48, 0.08);
+  border-color: rgba(255, 59, 48, 0.3);
+  color: var(--danger);
+}
+
+.badge-medium {
+  background: rgba(255, 159, 10, 0.08);
+  border-color: rgba(255, 159, 10, 0.3);
+  color: #c97700;
+}
+
+.badge-low {
+  background: rgba(48, 209, 88, 0.08);
+  border-color: rgba(48, 209, 88, 0.3);
+  color: #1b8a36;
+}
+
+.badge-completed {
+  background: rgba(48, 209, 88, 0.12);
+  border-color: rgba(48, 209, 88, 0.4);
+  color: #12752b;
+}
+
+.badge-overdue {
+  background: rgba(255, 59, 48, 0.12);
+  border-color: var(--danger);
+  color: var(--danger);
+  font-weight: 600;
+}
+
+.badge-today {
+  background: rgba(255, 159, 10, 0.15);
+  border-color: var(--warning);
+  color: #b56b00;
+  font-weight: 600;
+}
+
+/* Text Inputs */
+.text-input, .select-input, .textarea-input {
+  width: 100%;
+  background-color: var(--surface-soft);
+  color: var(--ink);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-sm);
+  padding: 8px 12px;
+  font-size: 14px;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+
+.text-input:focus, .select-input:focus, .textarea-input:focus {
+  background-color: var(--canvas);
+  border-color: var(--ink);
+}
+
+.textarea-input {
+  min-height: 80px;
+  resize: vertical;
+}
+
+/* Hairline dividers */
+.hairline-divider {
+  width: 100%;
+  height: 1px;
+  background-color: var(--hairline);
+  margin: var(--space-lg) 0;
+}
+
+.hairline-divider-strong {
+  width: 100%;
+  height: 1px;
+  background-color: var(--hairline-strong);
+  margin: var(--space-lg) 0;
+}
+
+/* App container */
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
