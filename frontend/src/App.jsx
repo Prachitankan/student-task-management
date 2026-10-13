@@ -1,348 +1,197 @@
-import React, { useState, useEffect } from "react";
-import "./App.css";
-import { Header } from "./components/Header";
-import { TaskForm } from "./components/TaskForm";
+import { useState, useEffect } from 'react';
+import TaskForm from './components/TaskForm';
+import TaskItem from './components/TaskItem';
+import './App.css';
 
-import { Dashboard } from "./pages/Dashboard";
-import { Tasks } from "./pages/Tasks";
-import { Calendar } from "./pages/Calendar";
-import { Profile } from "./pages/Profile";
-import { Settings } from "./pages/Settings";
+export default function App() {
+  const [tasks, setTasks] = useState([]);
+  const [filter, setFilter] = useState('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-import { storageService } from "./services/storageService";
-import { taskService } from "./services/taskService";
-import { api } from "./services/api";
+  // Fetch all tasks from backend on initial load
+  const fetchTasks = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+      const res = await fetch('/api/tasks');
+      if (!res.ok) throw new Error('Failed to load tasks');
+      const data = await res.json();
+      setTasks(data);
+    } catch (err) {
+      setError('Cannot connect to backend server. Make sure it is running on port 5000 (npm run backend).');
+    } finally {
+      setLoading(false);
+    }
+  };
 
-function App() {
-  // Layered State: Tasks, Profile, Settings
-  const [tasks, setTasks] = useState(() => storageService.getTasks());
-  const [profile, setProfile] = useState(() => storageService.getProfile());
-  const [settings, setSettings] = useState(() => storageService.getSettings());
-
-  // Backend Connectivity Status
-  const [backendStatus, setBackendStatus] = useState({ online: false });
-
-  // UI Navigation State
-  const [activePage, setActivePage] = useState("dashboard"); // 'dashboard' | 'tasks' | 'calendar' | 'profile' | 'settings'
-
-  // Modals
-  const [isTaskFormOpen, setIsTaskFormOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState(null);
-  const [taskFormDefaultDate, setTaskFormDefaultDate] = useState(null);
-
-  // Jump filters for Tasks page navigation
-  const [taskFilters, setTaskFilters] = useState({});
-
-  // Check backend health & sync data on initial load
   useEffect(() => {
-    let isMounted = true;
-    const checkConnection = async () => {
-      const status = await api.checkHealth();
-      if (!isMounted) return;
-      setBackendStatus(status);
-
-      if (status.online) {
-        const { tasks: backendTasks } = await api.getTasks();
-        if (isMounted && backendTasks?.length) {
-          setTasks(backendTasks);
-        }
-        const { profile: backendProfile } = await api.getProfile();
-        if (isMounted && backendProfile) {
-          setProfile(backendProfile);
-        }
-      }
-    };
-    checkConnection();
-    return () => { isMounted = false; };
+    fetchTasks();
   }, []);
 
-  // Auto-persist tasks to storage whenever they change
-  useEffect(() => {
-    storageService.saveTasks(tasks);
-  }, [tasks]);
-
-  // Auto-persist profile
-  useEffect(() => {
-    storageService.saveProfile(profile);
-  }, [profile]);
-
-  // Auto-persist settings
-  useEffect(() => {
-    storageService.saveSettings(settings);
-  }, [settings]);
-
-  // Keyboard navigation shortcuts
-  useEffect(() => {
-    const handleGlobalKeyDown = (e) => {
-      const activeTag = document.activeElement?.tagName?.toLowerCase();
-      const isInput = activeTag === "input" || activeTag === "textarea" || activeTag === "select";
-
-      // Allow Escape everywhere to close modals
-      if (e.key === "Escape") {
-        if (isTaskFormOpen) {
-          setIsTaskFormOpen(false);
-          setEditingTask(null);
-        }
-        return;
-      }
-
-      if (isInput) return;
-
-      // Shortcuts when not typing in an input
-      if (e.key === "n" || e.key === "N") {
-        e.preventDefault();
-        setEditingTask(null);
-        setTaskFormDefaultDate(taskService.getTodayString());
-        setIsTaskFormOpen(true);
-      } else if (e.key === "/") {
-        e.preventDefault();
-        if (activePage !== "tasks") {
-          setActivePage("tasks");
-        }
-        setTimeout(() => {
-          document.getElementById("task-search-input")?.focus();
-        }, 100);
-      } else if (e.key === "1") {
-        setActivePage("dashboard");
-      } else if (e.key === "2") {
-        setActivePage("tasks");
-      } else if (e.key === "3") {
-        setActivePage("calendar");
-      } else if (e.key === "4") {
-        setActivePage("profile");
-      } else if (e.key === "5") {
-        setActivePage("settings");
-      }
-    };
-
-    window.addEventListener("keydown", handleGlobalKeyDown);
-    return () => window.removeEventListener("keydown", handleGlobalKeyDown);
-  }, [isTaskFormOpen, activePage]);
-
-  // Task Actions (Service Layer & Backend API integrations)
-  const handleSaveTask = (taskData) => {
-    if (taskData.id) {
-      // Update existing task
-      setTasks((prev) =>
-        prev.map((t) => (t.id === taskData.id ? { ...t, ...taskData } : t))
-      );
-      api.updateTask(taskData.id, taskData);
-    } else {
-      // Create new task
-      const newTask = taskService.createTask(taskData);
-      setTasks((prev) => [newTask, ...prev]);
-      api.createTask(newTask);
+  // Add a new task
+  const handleAddTask = async (newTask) => {
+    try {
+      const res = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(newTask)
+      });
+      if (!res.ok) throw new Error('Failed to add task');
+      const savedTask = await res.json();
+      setTasks([savedTask, ...tasks]);
+    } catch (err) {
+      alert('Error adding task: ' + err.message);
     }
   };
 
-  const handleToggleStatus = (taskId) => {
-    setTasks((prev) =>
-      prev.map((t) => {
-        if (t.id === taskId) {
-          const isComp = t.status === "Completed";
-          const newStatus = isComp ? "Pending" : "Completed";
-          api.updateTask(taskId, { ...t, status: newStatus });
-          return { ...t, status: newStatus };
-        }
-        return t;
-      })
-    );
-  };
-
-  const handleDeleteTask = (taskId) => {
-    const target = tasks.find((t) => t.id === taskId);
-    if (!target) return;
-
-    if (window.confirm(`Delete task "${target.title}"?`)) {
-      setTasks((prev) => prev.filter((t) => t.id !== taskId));
-      api.deleteTask(taskId);
+  // Toggle task completed status
+  const handleToggleComplete = async (id, currentCompleted) => {
+    try {
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ completed: !currentCompleted })
+      });
+      if (!res.ok) throw new Error('Failed to update task');
+      const updated = await res.json();
+      setTasks(tasks.map(t => (t.id === id ? updated : t)));
+    } catch (err) {
+      alert('Error updating task: ' + err.message);
     }
   };
 
-  const handleUpdateProfile = (newProfile) => {
-    setProfile(newProfile);
-    api.updateProfile(newProfile);
-  };
-
-  const handleEditTask = (task) => {
-    setEditingTask(task);
-    setIsTaskFormOpen(true);
-  };
-
-  const handleOpenAddTask = (specificDate = null) => {
-    setEditingTask(null);
-    setTaskFormDefaultDate(specificDate || taskService.getTodayString());
-    setIsTaskFormOpen(true);
-  };
-
-  // Jump from Dashboard to Tasks with preset filter
-  const handleSetFilterAndNavigate = (filterPreset) => {
-    setTaskFilters(filterPreset);
-    setActivePage("tasks");
-  };
-
-  // Reset all to sample defaults
-  const handleResetAll = () => {
-    const fresh = storageService.resetAll();
-    if (fresh) {
-      setTasks(fresh.tasks);
-      setProfile(fresh.profile);
-      setSettings(fresh.settings);
+  // Delete a task
+  const handleDeleteTask = async (id) => {
+    if (!window.confirm('Are you sure you want to delete this task?')) return;
+    try {
+      const res = await fetch(`/api/tasks/${id}`, {
+        method: 'DELETE'
+      });
+      if (!res.ok) throw new Error('Failed to delete task');
+      setTasks(tasks.filter(t => t.id !== id));
+    } catch (err) {
+      alert('Error deleting task: ' + err.message);
     }
   };
 
-  // Import JSON backup
-  const handleImportData = (newTasks, newProfile, newSettings) => {
-    setTasks(newTasks);
-    if (newProfile) setProfile(newProfile);
-    if (newSettings) setSettings(newSettings);
-  };
+  // Statistics
+  const totalCount = tasks.length;
+  const completedCount = tasks.filter(t => t.completed).length;
+  const pendingCount = totalCount - completedCount;
 
-  // Extract all distinct subjects for filters and dropdowns
-  const availableSubjects = Array.from(
-    new Set(tasks.map((t) => t.subject).filter(Boolean))
-  );
+  // Filter & Search tasks
+  const filteredTasks = tasks.filter(task => {
+    // Filter by status
+    if (filter === 'pending' && task.completed) return false;
+    if (filter === 'completed' && !task.completed) return false;
 
-  // Compute urgent alert count for header notification badge
-  const overdueCount = tasks.filter((t) => taskService.isOverdue(t.dueDate, t.status)).length;
-  const dueTodayCount = tasks.filter(
-    (t) => taskService.isToday(t.dueDate) && t.status !== "Completed"
-  ).length;
-  const unreadAlertCount = overdueCount + dueTodayCount;
-
-  // Handle clicking the notification bell: jump to overdue or today's tasks
-  const handleNotificationClick = () => {
-    if (overdueCount > 0) {
-      handleSetFilterAndNavigate({ dueDateFilter: "overdue" });
-    } else if (dueTodayCount > 0) {
-      handleSetFilterAndNavigate({ dueDateFilter: "today" });
-    } else {
-      setActivePage("dashboard");
+    // Search by title or subject
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      const matchTitle = task.title.toLowerCase().includes(query);
+      const matchSubject = (task.subject || '').toLowerCase().includes(query);
+      return matchTitle || matchSubject;
     }
-  };
+
+    return true;
+  });
 
   return (
-    <div className={`app-wrapper ${settings.compactMode ? "compact-mode" : ""}`}>
-      {/* Global Monospace Header */}
-      <Header
-        activePage={activePage}
-        onNavigate={(page) => {
-          setTaskFilters({}); // reset temporary jump filters on direct nav
-          setActivePage(page);
-        }}
-        onOpenAddTask={() => handleOpenAddTask()}
-        onOpenNotifications={handleNotificationClick}
-        unreadAlertCount={unreadAlertCount}
-        studentName={profile.name}
-        backendStatus={backendStatus}
-      />
+    <div className="app-container">
+      {/* Header */}
+      <header className="app-header">
+        <h1>🎓 Student Task Manager</h1>
+        <p>Keep track of your academic tasks, assignments, and deadlines</p>
+      </header>
 
-      {/* Main Page Content */}
-      <main className="main-content-container">
-        {activePage === "dashboard" && (
-          <Dashboard
-            tasks={tasks}
-            profile={profile}
-            onNavigate={setActivePage}
-            onOpenAddTask={() => handleOpenAddTask()}
-            onToggleStatus={handleToggleStatus}
-            onEditTask={handleEditTask}
-            onDeleteTask={handleDeleteTask}
-            onSetFilterAndNavigate={handleSetFilterAndNavigate}
-          />
-        )}
-
-        {activePage === "tasks" && (
-          <Tasks
-            tasks={tasks}
-            onToggleStatus={handleToggleStatus}
-            onEditTask={handleEditTask}
-            onDeleteTask={handleDeleteTask}
-            onOpenAddTask={() => handleOpenAddTask()}
-            availableSubjects={availableSubjects}
-            initialFilters={taskFilters}
-          />
-        )}
-
-        {activePage === "calendar" && (
-          <Calendar
-            tasks={tasks}
-            onToggleStatus={handleToggleStatus}
-            onEditTask={handleEditTask}
-            onDeleteTask={handleDeleteTask}
-            onOpenAddTaskWithDate={(dateStr) => handleOpenAddTask(dateStr)}
-          />
-        )}
-
-        {activePage === "profile" && (
-          <Profile
-            profile={profile}
-            onUpdateProfile={handleUpdateProfile}
-            tasks={tasks}
-          />
-        )}
-
-        {activePage === "settings" && (
-          <Settings
-            settings={settings}
-            onUpdateSettings={setSettings}
-            tasks={tasks}
-            profile={profile}
-            onResetAll={handleResetAll}
-            onImportData={handleImportData}
-            backendStatus={backendStatus}
-          />
-        )}
-      </main>
-
-      {/* Footer matching design spec */}
-      <footer className="footer-container">
-        <div className="footer-inner">
-          <div className="footer-links-grid">
-            <span style={{ fontWeight: 700, color: "var(--ink)" }}>ACADEMIC_OS:</span>
-            <a href="#dashboard" onClick={(e) => { e.preventDefault(); setActivePage("dashboard"); }} className="footer-link-item">
-              [Dashboard]
-            </a>
-            <a href="#tasks" onClick={(e) => { e.preventDefault(); setActivePage("tasks"); }} className="footer-link-item">
-              [Task Repository]
-            </a>
-            <a href="#calendar" onClick={(e) => { e.preventDefault(); setActivePage("calendar"); }} className="footer-link-item">
-              [Calendar Grid]
-            </a>
-            <a href="#profile" onClick={(e) => { e.preventDefault(); setActivePage("profile"); }} className="footer-link-item">
-              [Student Profile]
-            </a>
-            <a href="#settings" onClick={(e) => { e.preventDefault(); setActivePage("settings"); }} className="footer-link-item">
-              [Data Backup]
-            </a>
-          </div>
-
-          <div className="footer-bottom-row">
-            <div>
-              © 2026 Student Task Manager // Designed in Monospace Typography
-            </div>
-            <div>
-              Local Session: Active · Keyboard: [N] New Task · [/] Search · [1-5] Navigation
-            </div>
-          </div>
+      {/* Backend connection warning if offline */}
+      {error && (
+        <div className="error-banner">
+          <span>⚠️ {error}</span>
+          <button onClick={fetchTasks} className="btn-retry">Retry</button>
         </div>
-      </footer>
+      )}
 
-      {/* Add / Edit Task Modal Form */}
-      <TaskForm
-        key={isTaskFormOpen ? (editingTask ? editingTask.id : `new-${taskFormDefaultDate}`) : "closed"}
-        isOpen={isTaskFormOpen}
-        onClose={() => {
-          setIsTaskFormOpen(false);
-          setEditingTask(null);
-        }}
-        onSave={handleSaveTask}
-        editingTask={editingTask}
-        defaultDate={taskFormDefaultDate}
-        availableSubjects={availableSubjects}
-      />
+      {/* Summary Stats */}
+      <div className="stats-row">
+        <div className="stat-card">
+          <span className="stat-value">{totalCount}</span>
+          <span className="stat-label">Total Tasks</span>
+        </div>
+        <div className="stat-card stat-pending">
+          <span className="stat-value">{pendingCount}</span>
+          <span className="stat-label">Pending</span>
+        </div>
+        <div className="stat-card stat-completed">
+          <span className="stat-value">{completedCount}</span>
+          <span className="stat-label">Completed</span>
+        </div>
+      </div>
+
+      {/* Add Task Form */}
+      <TaskForm onAddTask={handleAddTask} />
+
+      {/* Task Filters & Search */}
+      <div className="controls-row">
+        <div className="filter-buttons">
+          <button
+            type="button"
+            className={`filter-btn ${filter === 'all' ? 'active' : ''}`}
+            onClick={() => setFilter('all')}
+          >
+            All ({totalCount})
+          </button>
+          <button
+            type="button"
+            className={`filter-btn ${filter === 'pending' ? 'active' : ''}`}
+            onClick={() => setFilter('pending')}
+          >
+            Pending ({pendingCount})
+          </button>
+          <button
+            type="button"
+            className={`filter-btn ${filter === 'completed' ? 'active' : ''}`}
+            onClick={() => setFilter('completed')}
+          >
+            Completed ({completedCount})
+          </button>
+        </div>
+
+        <input
+          type="text"
+          className="search-input"
+          placeholder="Search by title or subject..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </div>
+
+      {/* Tasks List */}
+      <div className="tasks-container">
+        {loading ? (
+          <p className="empty-message">Loading tasks...</p>
+        ) : filteredTasks.length === 0 ? (
+          <div className="empty-state">
+            <p className="empty-message">No tasks found.</p>
+            <p className="empty-sub">
+              {tasks.length === 0
+                ? 'Add your first assignment using the form above!'
+                : 'Try changing your search or filter criteria.'}
+            </p>
+          </div>
+        ) : (
+          filteredTasks.map(task => (
+            <TaskItem
+              key={task.id}
+              task={task}
+              onToggleComplete={handleToggleComplete}
+              onDelete={handleDeleteTask}
+            />
+          ))
+        )}
+      </div>
     </div>
   );
 }
-
-export default App;

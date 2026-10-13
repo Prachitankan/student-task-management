@@ -1,78 +1,116 @@
-import express from "express";
-import cors from "cors";
-import dotenv from "dotenv";
-import taskRoutes from "./routes/taskRoutes.js";
-import profileRoutes from "./routes/profileRoutes.js";
-import aiRoutes from "./routes/aiRoutes.js";
-import { isGeminiConfigured, defaultModel } from "./config/gemini.js";
+import express from 'express';
+import cors from 'cors';
+import fs from 'fs/promises';
+import path from 'path';
+import { fileURLToPath } from 'url';
 
-dotenv.config();
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = 5000;
+const DATA_FILE = path.join(__dirname, '../data/tasks.json');
 
 // Middleware
-app.use(cors({
-  origin: "*",
-  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
-  allowedHeaders: ["Content-Type", "Authorization", "Accept"]
-}));
+app.use(cors());
 app.use(express.json());
 
-// Request Logger
-app.use((req, res, next) => {
-  const timestamp = new Date().toISOString().slice(11, 19);
-  console.log(`[${timestamp}] ${req.method} ${req.originalUrl}`);
-  next();
-});
-
-// Health check endpoint (Queried by Frontend for live status detection)
-app.get("/api/health", (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    service: "student-task-manager-backend",
-    timestamp: new Date().toISOString(),
-    gemini: {
-      configured: isGeminiConfigured,
-      model: defaultModel
-    }
-  });
-});
-
-// Mount Routes
-app.use("/api/tasks", taskRoutes);
-app.use("/api/profile", profileRoutes);
-app.use("/api/ai", aiRoutes);
-
-// 404 Route Handler
-app.use((req, res) => {
-  res.status(404).json({
-    error: "Endpoint not found",
-    path: req.originalUrl
-  });
-});
-
-// Global Error Handler
-app.use((err, req, res, next) => {
-  console.error("[Server Error]:", err);
-  res.status(500).json({
-    error: "Internal Server Error",
-    message: err.message
-  });
-});
-
-// Start Server
-app.listen(PORT, () => {
-  console.log("\n=======================================================");
-  console.log(`🚀 [ACADEMIC_OS BACKEND] Server running on http://localhost:${PORT}`);
-  console.log(`📡 Health Check: http://localhost:${PORT}/api/health`);
-  console.log(`📋 Tasks API:   http://localhost:${PORT}/api/tasks`);
-  console.log(`👤 Profile API: http://localhost:${PORT}/api/profile`);
-  console.log(`🧠 Gemini AI:   http://localhost:${PORT}/api/ai/status`);
-  if (isGeminiConfigured) {
-    console.log(`✨ Google Gemini: ACTIVE (Model: ${defaultModel})`);
-  } else {
-    console.log(`ℹ️  Google Gemini: Unconfigured. Add GEMINI_API_KEY in backend/.env for live AI.`);
+// Helper function to read tasks from JSON file
+async function getTasks() {
+  try {
+    const data = await fs.readFile(DATA_FILE, 'utf-8');
+    return JSON.parse(data);
+  } catch {
+    return [];
   }
-  console.log("=======================================================\n");
+}
+
+// Helper function to save tasks to JSON file
+async function saveTasks(tasks) {
+  await fs.writeFile(DATA_FILE, JSON.stringify(tasks, null, 2), 'utf-8');
+}
+
+// 1. GET all tasks
+app.get('/api/tasks', async (req, res) => {
+  try {
+    const tasks = await getTasks();
+    res.json(tasks);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to read tasks' });
+  }
+});
+
+// 2. POST create a new task
+app.post('/api/tasks', async (req, res) => {
+  try {
+    const { title, subject, dueDate, priority } = req.body;
+    
+    if (!title || !title.trim()) {
+      return res.status(400).json({ message: 'Task title is required' });
+    }
+
+    const tasks = await getTasks();
+    const newTask = {
+      id: Date.now().toString(),
+      title: title.trim(),
+      subject: (subject || 'General').trim(),
+      dueDate: dueDate || '',
+      priority: priority || 'Medium',
+      completed: false
+    };
+
+    tasks.unshift(newTask);
+    await saveTasks(tasks);
+
+    res.status(201).json(newTask);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to create task' });
+  }
+});
+
+// 3. PUT update an existing task (e.g. toggle completed)
+app.put('/api/tasks/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tasks = await getTasks();
+    const index = tasks.findIndex(task => task.id === id);
+
+    if (index === -1) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
+    // Update task fields
+    tasks[index] = {
+      ...tasks[index],
+      ...req.body,
+      id // preserve original ID
+    };
+
+    await saveTasks(tasks);
+    res.json(tasks[index]);
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to update task' });
+  }
+});
+
+// 4. DELETE a task
+app.delete('/api/tasks/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const tasks = await getTasks();
+    const filteredTasks = tasks.filter(task => task.id !== id);
+
+    if (tasks.length === filteredTasks.length) {
+      return res.status(404).json({ message: 'Task not found' });
+    }
+
+    await saveTasks(filteredTasks);
+    res.json({ message: 'Task deleted successfully', id });
+  } catch (error) {
+    res.status(500).json({ message: 'Failed to delete task' });
+  }
+});
+
+app.listen(PORT, () => {
+  console.log(`Server is running on http://localhost:${PORT}`);
 });
